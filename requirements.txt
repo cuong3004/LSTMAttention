@@ -1,0 +1,5 @@
+opendatasets
+albumentations>=1.1.0
+opencv-python>=4.5.5.62
+pytorch_lightning
+torchaudio
