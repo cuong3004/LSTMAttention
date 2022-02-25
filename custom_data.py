@@ -1,10 +1,13 @@
 import torch 
 import torchaudio
+import librosa
+import numpy as np
 
 class AudioDataset:
-    def __init__(self, file_path, class_id):
+    def __init__(self, file_path, class_id, transform=None):
         self.file_path = file_path
         self.class_id = class_id
+        self.transform = transform
         
     def __len__(self):
         return len(self.file_path)
@@ -19,16 +22,25 @@ class AudioDataset:
         else:
             tempData = audio_mono[:, :sr*4] # else sample_rate 160000
         audio_mono=tempData
+        
+        if self.transform:
+            # print(audio_mono.shape)
+            audio_mono = audio_mono[0].numpy()
+            audio_mono, sr = self.transform(data=(audio_mono, sr))['data']
+            audio_mono = torch.from_numpy(audio_mono).unsqueeze(0)
 
         mel_specgram = torchaudio.transforms.MelSpectrogram(sr)(audio_mono) # (channel, n_mels, time)
+        mel_specgram = torch.from_numpy(librosa.power_to_db(mel_specgram**2,ref=np.max))
         mel_specgram_norm = (mel_specgram - mel_specgram.mean()) / mel_specgram.std() # Noramalization
-        mfcc = torchaudio.transforms.MFCC(sample_rate=sr)(audio_mono) # (channel, n_mfcc, time)
-        mfcc_norm = (mfcc - mfcc.mean()) / mfcc.std() # mfcc norm
         
-        new_feat = torch.cat([mel_specgram_norm, mfcc_norm], axis=1)
+        # mfcc = torchaudio.transforms.MFCC(sample_rate=sr)(audio_mono) # (channel, n_mfcc, time)
+        # mfcc_norm = (mfcc - mfcc.mean()) / mfcc.std() # mfcc norm
+        
+        # print(mel_specgram_norm.min(), mel_specgram_norm.max())
+        # new_feat = torch.cat([mel_specgram_norm, mfcc_norm], axis=1)
 
         return {
-            "specgram": new_feat[0].permute(1, 0),
+            "specgram": mel_specgram_norm[0].permute(1, 0),
             "label": torch.tensor(self.class_id[idx], dtype=torch.long)
         }
 
