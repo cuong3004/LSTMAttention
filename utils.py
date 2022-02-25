@@ -1,3 +1,16 @@
+from albumentations.core.transforms_interface import DualTransform, BasicTransform
+import albumentations as A
+import random
+import os
+import librosa
+import numpy as np
+import torchaudio
+import torch
+import matplotlib.pyplot as plt
+
+
+
+
 class AudioTransform(BasicTransform):
     """Transform for Audio task"""
 
@@ -129,3 +142,21 @@ class AudioManipulation:
             sig = np.concatenate([pad_begin, sig, pad_end])
 
         return (sig, sr)
+
+
+if __name__ == "__main__":
+    import albumentations as A
+    transform_audio = A.Compose([
+
+         NoiseInjection(p=0.5),
+         ShiftingTime(p=0.5),
+         PitchShift(p=0.5),
+        #  MelSpectrogram(parameters=melspectrogram_parameters, always_apply=True),
+    #      SpectToImage(always_apply=True)
+    ])
+    x  = np.ones((88200))
+    sr = 22000
+
+    x, sr  = transform_audio(data=(x, sr))["data"]
+    x = torch.from_numpy(x).unsqueeze(0)
+    print(x.shape)

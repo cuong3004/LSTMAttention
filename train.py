@@ -3,12 +3,15 @@ import os
 from sklearn.model_selection import train_test_split
 from custom_data import *
 import torch
-from model import AudioLSTM
+from model import AudioLSTM, AudioLSTMAttention
 import pytorch_lightning as pl
 from litmodule import LitClassification
 from callbacks import input_monitor_train, input_monitor_valid, checkpoint_callback, early_stop_callback
+from utils import *
 
-FILE_PATH = "preprocessing_data/"
+pl.seed_everything(1234)
+
+FILE_PATH = "../ConvLstmMultipleFeature/preprocessing_data/"
 df = pd.read_csv(os.path.join(FILE_PATH, "UrbanSound8K.csv"))
 
 files = df["slice_file_name"].values.tolist()
@@ -21,9 +24,20 @@ path = [
 X_train, X_test, y_train, y_test = train_test_split(path, label, random_state=42, test_size=0.2)
 X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, random_state=43, test_size=0.15)
 
+transform_audio = A.Compose([
+
+         NoiseInjection(p=0.4),
+         ShiftingTime(p=0.4),
+        #  PitchShift(p=0.2),
+        #  MelSpectrogram(parameters=melspectrogram_parameters, always_apply=True),
+    #      SpectToImage(always_apply=True)
+    ])
+# transform_audio = None
+
 train_dataset = AudioDataset(
     file_path=X_train,
-    class_id=y_train
+    class_id=y_train,
+    transform=transform_audio
 )
 
 batch_size = 32
@@ -34,12 +48,13 @@ train_loader = torch.utils.data.DataLoader(
 
 valid_dataset = AudioDataset(
     file_path=X_valid,
-    class_id=y_valid
+    class_id=y_valid,
+    # transform=transform_audio
 )
 
 test_dataset = AudioDataset(
     file_path=X_test,
-    class_id=y_test
+    class_id=y_test,
 )
 
 valid_loader = torch.utils.data.DataLoader(
@@ -54,9 +69,11 @@ x, y = next(iter(train_loader))
 
 EPOCH = 50
 OUT_FEATURE = 10
-model_audio = AudioLSTM(n_feature=168, out_feature=OUT_FEATURE)
+model_audio = AudioLSTMAttention(n_feature=128, out_feature=OUT_FEATURE)
+# model_audio = AudioLSTM(n_feature=40, out_feature=OUT_FEATURE)
 
 model = LitClassification(model_audio)
+# model = LitClassification.load_from_checkpoint("/content/drive/MyDrive/LSTMAtention/checkpoint/model-v18.ckpt")
 
 callbacks = [input_monitor_train, input_monitor_valid, checkpoint_callback, 
 # early_stop_callback
@@ -70,133 +87,4 @@ trainer = pl.Trainer(
 trainer.fit(model, train_loader, valid_loader)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# from custom_data import CustomData, CustomDataMel
-# import torch 
-# import albumentations as A
-# from albumentations.pytorch import ToTensorV2
-# from utils import *
-# import matplotlib.pyplot as plt
-# from tqdm import tqdm
-# import librosa.display
-# from model import CnnLstm, CNNModel, LstmModel
-# from torch.utils.data import DataLoader, random_split
-# import pytorch_lightning as pl
-# from litmodule import LitClassification
-# from torchvision.models import mobilenet_v2
-# import torch.nn as nn
-# import os
-# import pandas as pd
-# from glob import glob
-# from callbacks import input_monitor_train, input_monitor_valid, checkpoint_callback, early_stop_callback
-
-
-# # In[2]:
-
-
-# batch_size = 64
-# num_classes = 10
-# num_workers = 2
-
-# npobj = np.load("normalize.npz")
-# mean, std = npobj['mean'], npobj['std']
-# print("mean, std : ", mean, std)
-
-# pl.seed_everything(1234)
-
-
-# # In[3]:
-
-
-# melspectrogram_parameters = {
-#         "n_mels": 128,
-#         "fmin": 40,
-#         # "fmax": 32000
-#     }
-
-
-# # In[4]:
-
-
-# transform_audio = A.Compose([
-
-#          NoiseInjection(p=0.5),
-#          ShiftingTime(p=0.5),
-#          PitchShift(p=0.5),
-#          MelSpectrogram(parameters=melspectrogram_parameters, always_apply=True),
-#     #      SpectToImage(always_apply=True)
-#     ])
-
-# transform_image = A.Compose([
-#     A.Normalize(mean=mean, std=std),
-#     ToTensorV2()
-# ])
-
-
-# # In[5]:
-
-
-# dataset = CustomDataMel(
-#                 csv_file="UrbanSound8K.csv",
-#                 data_dir="preprocessing_data",
-#                 transform_audio=transform_audio,
-#                 transform_image = transform_image
-#                 )
-
-
-# # In[6]:
-
-
-# train_len = int(len(dataset)*0.8)
-# valid_len = len(dataset)-train_len
-# data_train, data_valid = random_split(dataset,[train_len, valid_len])
-
-
-# train_loader = DataLoader(data_train, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-# valid_loader = DataLoader(data_valid, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
-
-# # In[7]:
-
-
-# cnn_model = mobilenet_v2()
-# cnn_model.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
-# cnn_model.classifier[1] = torch.nn.Linear(1280,num_classes)
-# # model_lstm = LstmModel(n_feature=172, num_classes=10, n_hidden=256, n_layers=2)
-
-
-# # In[8]:
-
-
-# model = LitClassification(cnn_model)
-
-# callbacks = [input_monitor_train, input_monitor_valid, checkpoint_callback, early_stop_callback]
-
-
-# # In[9]:
-
-# gpus = 1 if torch.cuda.is_available() else 0
-# trainer = pl.Trainer(
-#                 gpus=gpus, 
-#                 callbacks = callbacks, 
-#                 # max_epochs=1,
-#                 )
-
-
-# # In[ ]:
-
-
-# trainer.fit(model, train_loader, valid_loader)
+# trainer.test(model, test_loader)

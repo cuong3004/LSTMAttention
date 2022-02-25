@@ -46,3 +46,16 @@ class LitClassification(pl.LightningModule):
         self.log('valid_loss', loss.item())
         self.valid_acc(out, y)
         self.log('valid_acc', self.valid_acc, on_step=False, on_epoch=True)
+    
+    def test_step(self, test_batch, batch_idx):
+
+        x, y = test_batch
+        # print(y)
+        # print(x.shape)
+        out = self.model(x)    
+        # print(out)
+        loss = F.cross_entropy(out, y)
+        
+        self.log('test_loss', loss.item())
+        self.valid_acc(out, y)
+        self.log('test_acc', self.valid_acc, on_step=False, on_epoch=True)
