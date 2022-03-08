@@ -38,7 +38,7 @@ class AudioDataset:
         
         # print(mel_specgram_norm.min(), mel_specgram_norm.max())
         # new_feat = torch.cat([mel_specgram_norm, mfcc_norm], axis=1)
-
+        # print(mel_specgram_norm.shape)
         return {
             "specgram": mel_specgram_norm[0].permute(1, 0),
             "label": torch.tensor(self.class_id[idx], dtype=torch.long)

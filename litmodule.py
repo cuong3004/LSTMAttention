@@ -29,9 +29,10 @@ class LitClassification(pl.LightningModule):
         out = self.model(x) 
         loss = F.cross_entropy(out, y)
         # print(loss)
-        self.log('train_loss', loss.item())
+        # print(self.trainer.current_epoch)
+        self.log('train_loss', loss.item(), on_step=False, on_epoch=True)
         self.train_acc(out, y)
-        self.log('train_acc', self.train_acc, on_step=True, on_epoch=False)
+        self.log('train_acc', self.train_acc, on_step=False, on_epoch=True)
 
         return loss
 
@@ -43,7 +44,7 @@ class LitClassification(pl.LightningModule):
         # print(out)
         loss = F.cross_entropy(out, y)
         
-        self.log('valid_loss', loss.item())
+        self.log('valid_loss', loss.item(),  on_step=False, on_epoch=True)
         self.valid_acc(out, y)
         self.log('valid_acc', self.valid_acc, on_step=False, on_epoch=True)
     

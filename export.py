@@ -7,7 +7,7 @@ import numpy as np
 from torch.autograd import Variable
 
 
-model_file_checkpoint = "checkpoint/model-v13.ckpt"
+model_file_checkpoint = "checkpoint/model.ckpt"
 
 
 model = LitClassification.load_from_checkpoint(model_file_checkpoint)

@@ -8,10 +8,11 @@ import pytorch_lightning as pl
 from litmodule import LitClassification
 from callbacks import input_monitor_train, input_monitor_valid, checkpoint_callback, early_stop_callback
 from utils import *
+from pytorch_lightning.loggers import WandbLogger
 
 pl.seed_everything(1234)
 
-FILE_PATH = "../ConvLstmMultipleFeature/preprocessing_data/"
+FILE_PATH = "preprocessing_data/"
 df = pd.read_csv(os.path.join(FILE_PATH, "UrbanSound8K.csv"))
 
 files = df["slice_file_name"].values.tolist()
@@ -26,11 +27,8 @@ X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, random_s
 
 transform_audio = A.Compose([
 
-         NoiseInjection(p=0.4),
-         ShiftingTime(p=0.4),
-        #  PitchShift(p=0.2),
-        #  MelSpectrogram(parameters=melspectrogram_parameters, always_apply=True),
-    #      SpectToImage(always_apply=True)
+         NoiseInjection(p=0.5),
+         ShiftingTime(p=0.5),
     ])
 # transform_audio = None
 
@@ -40,16 +38,15 @@ train_dataset = AudioDataset(
     transform=transform_audio
 )
 
-batch_size = 32
+batch_size = 128
 
 train_loader = torch.utils.data.DataLoader(
-    train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, collate_fn=collate_fn
+    train_dataset, batch_size=batch_size, shuffle=True, drop_last=True, num_workers=2, collate_fn=collate_fn
 )
 
 valid_dataset = AudioDataset(
     file_path=X_valid,
     class_id=y_valid,
-    # transform=transform_audio
 )
 
 test_dataset = AudioDataset(
@@ -58,7 +55,7 @@ test_dataset = AudioDataset(
 )
 
 valid_loader = torch.utils.data.DataLoader(
-    valid_dataset, batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=collate_fn
+    valid_dataset, batch_size=batch_size, shuffle=False, drop_last=True, collate_fn=collate_fn, num_workers=2, 
 )
 
 test_loader = torch.utils.data.DataLoader(
@@ -67,24 +64,29 @@ test_loader = torch.utils.data.DataLoader(
 
 x, y = next(iter(train_loader))
 
-EPOCH = 50
+EPOCH = 100
 OUT_FEATURE = 10
 model_audio = AudioLSTMAttention(n_feature=128, out_feature=OUT_FEATURE)
-# model_audio = AudioLSTM(n_feature=40, out_feature=OUT_FEATURE)
+# model_audio = AudioLSTM(n_feature=128, out_feature=OUT_FEATURE)
 
 model = LitClassification(model_audio)
-# model = LitClassification.load_from_checkpoint("/content/drive/MyDrive/LSTMAtention/checkpoint/model-v18.ckpt")
-
-callbacks = [input_monitor_train, input_monitor_valid, checkpoint_callback, 
-# early_stop_callback
+callbacks = [
+    checkpoint_callback, 
 ]
+
+wandb_logger = WandbLogger(name="LSTMAttention_Mel", project="LSTMATTENTION")
 
 trainer = pl.Trainer(
                 gpus=1 if torch.cuda.is_available() else 0 , 
                 callbacks = callbacks, 
+                # log_every_n_steps=20,
                 max_epochs=EPOCH,
+                logger=wandb_logger
                 )
 trainer.fit(model, train_loader, valid_loader)
 
+from glob import glob
+list_file = glob("checkpoint/*")
+model = LitClassification.load_from_checkpoint(list_file[-1])
+trainer.test(model, test_loader)
 
-# trainer.test(model, test_loader)
